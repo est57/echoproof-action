@@ -21,7 +21,13 @@ jobs:
           python3 -m http.server 18080 -d test/base >/dev/null 2>&1 &
           python3 -m http.server 18081 -d test/base >/dev/null 2>&1 &
           python3 -m http.server 18082 -d test/pr >/dev/null 2>&1 &
-          sleep 2
+          for port in 18080 18081 18082; do
+            for _ in $(seq 1 30); do
+              curl -fsS "http://127.0.0.1:$port/health.json" >/dev/null 2>&1 && break
+              sleep 1
+            done
+            curl -fsS "http://127.0.0.1:$port/health.json"
+          done
       - id: unchanged
         uses: ./
         with:
