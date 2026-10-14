@@ -1,0 +1,44 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  action:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start base and PR builds
+        run: |
+          python3 -m http.server 18080 -d test/base >/dev/null 2>&1 &
+          python3 -m http.server 18081 -d test/base >/dev/null 2>&1 &
+          python3 -m http.server 18082 -d test/pr >/dev/null 2>&1 &
+          sleep 2
+      - id: unchanged
+        uses: ./
+        with:
+          snapshot: test/traffic.jsonl
+          base: http://127.0.0.1:18080
+          target: http://127.0.0.1:18081
+      - id: changed
+        uses: ./
+        with:
+          snapshot: test/traffic.jsonl
+          base: http://127.0.0.1:18080
+          target: http://127.0.0.1:18082
+          fail-on-regression: "false"
+      - name: Verify verdicts
+        env:
+          UNCHANGED: ${{ steps.unchanged.outputs.verdict }}
+          CHANGED: ${{ steps.changed.outputs.verdict }}
+        run: |
+          test "$UNCHANGED" = pass
+          test "$CHANGED" = regression

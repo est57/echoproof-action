@@ -1,0 +1,88 @@
+name: Echoproof check
+description: Replay recorded traffic against the base and PR builds and fail on unintended behavior changes.
+author: est57
+branding:
+  icon: shield
+  color: green
+
+inputs:
+  snapshot:
+    description: Recorded traffic (JSONL) to replay.
+    required: true
+  target:
+    description: URL of the PR build.
+    required: true
+  base:
+    description: URL of the base build. Without it, the recorded responses are the baseline.
+    required: false
+  reset:
+    description: Shell command that restores state before every replay pass.
+    required: false
+  noise-runs:
+    description: Extra base replays used to learn noisy fields.
+    required: false
+  allow-writes:
+    description: Endpoints whose write requests may be replayed, one per line.
+    required: false
+  expect:
+    description: Endpoints expected to change, one per line.
+    required: false
+  intent:
+    description: What the change is meant to do. Changes are then judged by Claude.
+    required: false
+  intent-file:
+    description: File holding the intent.
+    required: false
+  code-diff:
+    description: Code diff of the change, given to the judge.
+    required: false
+  config:
+    description: Path to echoproof.toml.
+    required: false
+    default: echoproof.toml
+  anthropic-api-key:
+    description: Anthropic API key, needed only with intent or intent-file.
+    required: false
+  fail-on-regression:
+    description: Fail the step when the verdict is a regression.
+    required: false
+    default: "true"
+  version:
+    description: Echoproof version to install, e.g. 0.1.0, or latest.
+    required: false
+    default: latest
+
+outputs:
+  verdict:
+    description: pass, regression or error.
+    value: ${{ steps.check.outputs.verdict }}
+  report:
+    description: Path to the Markdown report.
+    value: ${{ steps.check.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install echoproof
+      shell: bash
+      env:
+        ECHOPROOF_VERSION: ${{ inputs.version }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/install.sh"
+    - name: Run echoproof check
+      id: check
+      shell: bash
+      env:
+        IN_SNAPSHOT: ${{ inputs.snapshot }}
+        IN_TARGET: ${{ inputs.target }}
+        IN_BASE: ${{ inputs.base }}
+        IN_RESET: ${{ inputs.reset }}
+        IN_NOISE_RUNS: ${{ inputs.noise-runs }}
+        IN_ALLOW_WRITES: ${{ inputs.allow-writes }}
+        IN_EXPECT: ${{ inputs.expect }}
+        IN_INTENT: ${{ inputs.intent }}
+        IN_INTENT_FILE: ${{ inputs.intent-file }}
+        IN_CODE_DIFF: ${{ inputs.code-diff }}
+        IN_CONFIG: ${{ inputs.config }}
+        IN_FAIL: ${{ inputs.fail-on-regression }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+      run: bash "$GITHUB_ACTION_PATH/scripts/run.sh"
